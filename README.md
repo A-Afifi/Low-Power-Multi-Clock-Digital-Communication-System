@@ -1,105 +1,99 @@
-# Low-Power-Multi-Clock-Digital-Communication-System
-1. Project Overview
+# Low-Power Multi-Clock Digital Communication System
 
-This project presents the design and implementation of a low-power digital communication system based on a UART master–slave architecture.
-The system utilizes multiple clock domains to balance performance and power efficiency while maintaining reliable data transfer.
+## Project Overview
+This project focuses on the design and implementation of a low-power digital communication system using a UART-based master–slave architecture.  
+Multiple clock domains are employed to reduce dynamic power consumption while maintaining reliable and robust data communication.
 
-Input: Control commands received from the master through the UART_RX interface.
+The system operates as follows:
+- Commands are received from the master through the UART_RX interface.
+- The system decodes and processes the received commands.
+- Execution results are transmitted back to the master via the UART_TX interface.
 
-Processing: Commands are decoded and handled by the system core logic.
+---
 
-Output: Execution results are sent back to the master via UART_TX.
+## System Architecture
+The design is organized into modular and scalable blocks:
 
-2. System Architecture
+- **UART Receiver (RX):**  
+  Receives serial data from the master using oversampling techniques and performs start bit, stop bit, and parity checking.
 
-The design is structured into modular blocks to enhance scalability and maintainability:
+- **Command Decoder:**  
+  Decodes incoming commands and maps them to the appropriate system operations.
 
-UART Receiver (RX): Captures serial data from the master, implementing oversampling along with start/stop bit and parity validation.
+- **Processing Core:**  
+  Executes arithmetic, logic, and control operations based on the decoded instructions.
 
-Command Decoder: Interprets incoming commands and selects the appropriate operation.
+- **Result Register:**  
+  Stores the operation result before transmission.
 
-Processing Core: Performs arithmetic, logic, and control operations according to the decoded instruction.
+- **UART Transmitter (TX):**  
+  Serializes parallel data and transmits it back to the master device.
 
-Result Register: Temporarily stores computed results prior to transmission.
+- **Multi-Clock Domains:**  
+  Independent clock domains are used across different system blocks to optimize power consumption.
 
-UART Transmitter (TX): Converts parallel data into serial format and transmits it back to the master.
+---
 
-Multi-Clock Domains: Independent clock domains are used across system blocks to minimize dynamic power consumption.
+## ASIC Backend Design Flow
+A complete ASIC backend flow was performed to ensure design correctness and physical implementability:
 
-3. ASIC Backend Implementation Flow
+### RTL Design and Verification
+- RTL written in **SystemVerilog**
+- Verified using functional simulation and testbenches
 
-A complete ASIC backend flow was carried out to validate the design for physical implementation:
+### Logic Synthesis
+- Tool: **Synopsys Design Compiler**
+- Generated a gate-level netlist with timing and power constraints
 
-RTL Design & Verification
+### Design for Testability (DFT)
+- Tool: **Synopsys DFT Compiler**
+- Scan chains inserted to improve test coverage
 
-Implemented using SystemVerilog
+### Formal Verification
+- Tool: **Synopsys Formality**
+- Verified equivalence between RTL and synthesized netlist
 
-Verified through functional simulations and testbenches
+### Place and Route
+- Tool: **Synopsys IC Compiler II**
+- Floorplanning, placement, clock tree synthesis, routing, and timing closure completed
 
-Logic Synthesis
+---
 
-Tool: Synopsys Design Compiler
+## Tools and Technologies
+- Synopsys VCS / QuestaSim – Functional simulation  
+- Synopsys Design Compiler – Logic synthesis  
+- Synopsys DFT Compiler – Scan insertion  
+- Synopsys Formality – Formal equivalence checking  
+- Synopsys IC Compiler II – Physical design (P&R)
 
-Generated a gate-level netlist under timing and power constraints
+---
 
-Design for Testability (DFT)
+## Repository Contents
+- RTL source files  
+- Verification testbenches  
+- Synthesized gate-level netlist  
+- Scan-inserted netlist  
+- Formal verification reports  
+- Place-and-route reports (timing, power, area)  
+- Final GDSII layout  
 
-Tool: Synopsys DFT Compiler
+---
 
-Scan chains inserted to enhance test coverage
+## How to Use
+1. Connect the master device to the UART interface.
+2. Send commands through UART_RX.
+3. The system decodes and executes the requested operation.
+4. Results are transmitted back to the master through UART_TX.
 
-Formal Verification
+---
 
-Tool: Synopsys Formality
+## Future Work
+- Apply advanced low-power techniques such as clock gating and power gating.
+- Add support for additional communication protocols such as SPI and I2C.
+- Extend the instruction set to support more complex operations.
 
-Ensured equivalence between RTL and synthesized netlist
+---
 
-Place & Route
-
-Tool: Synopsys IC Compiler II
-
-Completed floorplanning, placement, CTS, routing, and timing closure
-
-4. Tools & Technologies
-
-Synopsys VCS / QuestaSim – RTL simulation
-
-Synopsys Design Compiler – Logic synthesis
-
-Synopsys DFT Compiler – Scan insertion
-
-Synopsys Formality – Equivalence checking
-
-Synopsys ICC2 – Physical design and P&R
-
-5. Project Deliverables
-
-RTL design files
-
-Verification testbenches
-
-Synthesized gate-level netlist
-
-Scan-inserted netlist
-
-Formal verification reports
-
-Physical design reports (timing, power, area)
-
-Final GDSII layout
-
-6. System Operation
-
-The master sends commands through the UART interface.
-
-The system decodes and executes the requested operation.
-
-Results are transmitted back to the master via UART_TX.
-
-7. Future Enhancements
-
-Advanced low-power techniques such as clock gating and power gating.
-
-Integration of additional communication interfaces (SPI, I2C).
-
-Expansion of the instruction set to support more complex operations.
+## Author
+Ahmed Afifi  
+Electrical Engineering – Digital / ASIC Design
