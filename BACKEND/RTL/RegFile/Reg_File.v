@@ -1,0 +1,69 @@
+// *************************************************************//
+//                      Module : Reg_File                       //
+//                      Author : Ahmed_Afifi                    //
+// *************************************************************//
+
+module Reg_File #(
+parameter   WIDTH = 8, 
+            DEPTH = 16, 
+            ADDR = 4 
+)(
+input    wire                   CLK,           // System clock (posedge)
+input    wire                   RST,           // Async active-low reset  
+input    wire                   WrEn,          // Active-high write enable
+input    wire                   RdEn,          // Active-high read enable  
+input    wire    [ADDR-1:0]     Address,       // ADDR-bit address ( (2**ADDR) registers )
+input    wire    [WIDTH-1:0]    WrData,        // WIDTH-bit write data bus
+output   reg     [WIDTH-1:0]    RdData,        // WIDTH-bit registered read output
+output   reg                    RdData_VLD,    // Valid Flag
+output   wire    [WIDTH-1:0]    REG0,          // ALU Operand A  (Address: 0x0)
+output   wire    [WIDTH-1:0]    REG1,          // ALU Operand B  (Address: 0x1)
+output   wire    [WIDTH-1:0]    REG2,          // UART Config    (Address: 0x2) {Prescale,Parity_Type,Parity_En}
+output   wire    [WIDTH-1:0]    REG3           // Div Ratio      (Address: 0x3)
+);
+
+// 2D Array for 8 registers of 16 bits each               
+reg [WIDTH-1:0] memory [DEPTH-1:0] ; 
+
+// Added loop variable declaration
+integer i ;
+
+
+always @(posedge CLK, negedge RST) begin 
+    if (!RST) begin                      
+        RdData_VLD <= 1'b0 ;
+	    RdData     <= 'b0  ;
+
+        for (i=0; i<DEPTH ; i=i+1) begin
+            if(i==2)         
+                memory[i] <= 'b100000_00 ;
+		    else if (i==3) 
+                memory[i] <= 'b0010_0000 ;
+            else
+                memory[i] <= 'b0 ;
+        end
+    end
+
+    else if (WrEn && !RdEn) begin         // Write operation
+        memory[Address] <= WrData;        // write the data in the memory
+    end
+
+    else if (RdEn && !WrEn) begin         // Read operation
+        RdData <= memory[Address];        // read the data from the memory 
+        RdData_VLD <= 1'b1 ;
+    end
+
+    else begin
+	    RdData_VLD <= 1'b0 ;
+    end
+
+end
+
+
+assign REG0 = memory[0] ;
+assign REG1 = memory[1] ;
+assign REG2 = memory[2] ;
+assign REG3 = memory[3] ;
+
+
+endmodule

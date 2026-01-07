@@ -1,0 +1,27 @@
+Info:  Net Ref:/WORK/SYS_TOP_dft/SO[3] is undriven.
+Info:  Net Ref:/WORK/SYS_TOP_dft/SO[2] is undriven.
+Info:  Net Ref:/WORK/SYS_TOP_dft/SO[1] is undriven.
+Info:  Net Ref:/WORK/SYS_TOP_dft/SO[0] is undriven.
+Info:  Net Imp:/WORK/ALU_IN_Width8_DW_div_uns_0/remainder[7] is undriven.
+Info:  Net Imp:/WORK/ALU_IN_Width8_DW_div_uns_0/remainder[6] is undriven.
+Info:  Net Imp:/WORK/ALU_IN_Width8_DW_div_uns_0/remainder[5] is undriven.
+Info:  Net Imp:/WORK/ALU_IN_Width8_DW_div_uns_0/remainder[4] is undriven.
+Info:  Net Imp:/WORK/ALU_IN_Width8_DW_div_uns_0/remainder[3] is undriven.
+Info:  Net Imp:/WORK/ALU_IN_Width8_DW_div_uns_0/remainder[2] is undriven.
+Info:  Net Imp:/WORK/ALU_IN_Width8_DW_div_uns_0/remainder[1] is undriven.
+Info:  Net Imp:/WORK/ALU_IN_Width8_DW_div_uns_0/remainder[0] is undriven.
+Info:  Net Imp:/WORK/ALU_IN_Width8_DW_div_uns_0/divide_by_0 is undriven.
+Info:  Net Imp:/WORK/ALU_IN_Width8_DW01_sub_0/CO is undriven.
+Info:  Net Imp:/WORK/ALU_IN_Width8_DW01_add_0/CO is undriven.
+Info:  Net Imp:/WORK/ALU_IN_Width8_DW01_add_1/CO is undriven.
+Info:  guide_uniquify 102 (Line: 761)  Cannot find object "Domain2_SYNC_RST_MUX/U1" in design 'SYS_TOP_dft'.
+Info:  SVF Operation 102 (Line: 761) - uniquify.  Status: rejected
+Info:  guide_uniquify 102 (Line: 761)  Cannot find object "Domain1_SYNC_RST_MUX/U1" in design 'SYS_TOP_dft'.
+Info:  guide_uniquify 102 (Line: 761)  Cannot find object "RST_N_MUX/U1" in design 'SYS_TOP_dft'.
+Info:  guide_uniquify 102 (Line: 761)  Cannot find object "TX_CLK_MUX/U1" in design 'SYS_TOP_dft'.
+Info:  guide_uniquify 102 (Line: 761)  Cannot find object "RX_CLK_MUX/U1" in design 'SYS_TOP_dft'.
+Info:  guide_uniquify 102 (Line: 761)  Cannot find object "UART_CLK_MUX/U1" in design 'SYS_TOP_dft'.
+Info:  guide_uniquify 102 (Line: 761)  Cannot find object "DFT_REF_MUX/U1" in design 'SYS_TOP_dft'.
+Info:  guide_uniquify 110 (Line: 811)  Cannot find object "U0_ALU/dp_cluster_0/mult_47" in design 'SYS_TOP_dft'.
+Info:  Pre-verification of Ref:/WORK/ALU_IN_Width8/div_51 SUCCEEDED.
+Info:  Pre-verification of Ref:/WORK/ALU_IN_Width8/mult_47 SUCCEEDED.

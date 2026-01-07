@@ -1,0 +1,280 @@
+// ************************************************************* //
+//                         Module : CRC_tb                       //
+//                      Author : Ahmed_Afifi                     //
+// ************************************************************* //
+
+`timescale 1ns/1ns
+
+module UART_TX_tb ();
+
+//******************************* Parameters *******************************
+parameter     Clock_PERIOD = 5 ;
+
+//******************************* DUT Signals ******************************
+reg           CLK_tb ;
+reg           RST_tb ;
+reg   [7:0]   P_DATA_tb ;
+reg           Data_Valid_tb;
+reg           PAR_EN_tb;
+reg           PAR_TYP_tb;
+wire          busy_tb;
+wire          TX_OUT_tb;
+
+
+
+//***************************** DUT Instantation ****************************
+UART_TOP DUT (
+    .CLK(CLK_tb),
+    .RST(RST_tb),
+    .P_DATA(P_DATA_tb),
+    .Data_Valid(Data_Valid_tb),
+    .PAR_EN(PAR_EN_tb),
+    .PAR_TYP(PAR_TYP_tb),
+    .busy(busy_tb),
+    .TX_OUT(TX_OUT_tb)
+);
+
+
+//****************************** Internal signals *****************************
+reg [10:0] TX_Frame_P ;        // A reg to save UART_TX (with parity) values (Start-8data-parity-Stop)
+reg [ 9:0] TX_Frame ;          // A reg to save UART_TX (without parity) values (Start-8data-Stop)
+
+reg [12:0] Busy_Frame_P ;      // A reg to save UART_TX (with parity) values (IDLE-Start-8data-parity-Stop-IDLE)
+reg [11:0] Busy_Frame ;        // A reg to save UART_TX (without parity) values (IDLE-Start-8data-Stop-IDLE)
+
+
+
+//***************************** Clock Generator ******************************
+always #(Clock_PERIOD/2)  CLK_tb = ~CLK_tb ;
+
+
+//***************************** Loops Variables ******************************
+
+
+//******************************* initial block *******************************
+initial 
+begin
+    // System Functions
+    $dumpfile("UART_TX_DUMP.vcd") ;       
+    $dumpvars; 
+
+    // initialization
+    initialize() ;
+    DO_OP_Without_parity(8'b10011100);
+    DO_OP_With_parity(8'b10001100 , 0);        // with (even) parity
+
+
+    #100;
+    $finish ;
+
+end    
+
+ 
+
+//*************************************************************************************************************************************************//
+//***************************************************************** TASKS *************************************************************************//
+//*************************************************************************************************************************************************//
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//**************************************************** Signals Initialization *************************************************************//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+task initialize ;
+ begin
+        CLK_tb     =1'b0 ;
+     Data_Valid_tb =1'b0 ;
+       PAR_EN_tb   =1'b1 ;
+       PAR_TYP_tb  =1'b1 ;
+        RST_tb     =1'b1 ;
+       TX_Frame    = 'b0 ;
+      TX_Frame_P   = 'b0 ;
+      Busy_Frame   = 'b0 ;
+     Busy_Frame_P  = 'b0 ;
+
+    reset();
+
+ end
+endtask   
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//*********************************************************** RESET *******************************************************************//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+task reset ;
+    begin
+        RST_tb =  1'b1;
+        @(negedge CLK_tb)
+        RST_tb  = 1'b0;
+        @(negedge CLK_tb)
+        RST_tb  = 1'b1;
+    end
+endtask
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//**************************************************** DO_OP_Without_parity *************************************************************//
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+task DO_OP_Without_parity ;
+    input   [7:0]   Data ;
+
+    reg     [7:0]   Data_LSB_first;
+    reg     [9:0]  expected_frame; // Start + 8 Data + Stop
+    reg     [11:0]  expected_busy;  // Busy pattern
+
+    integer i ;
+    integer n ;
+    
+    begin
+
+    /////////////////////////////////// Expected Frames ///////////////////////////////
+        
+        // Reverse Data bits for LSB-first order 
+        for (n = 0; n < 8; n = n + 1) begin
+            Data_LSB_first[7-n] = Data[n];
+        end      
+
+        // Build expected frame 
+        expected_frame = {1'b0, Data_LSB_first, 1'b1};  // Start(0), then LSB-first data, then Stop(1)
+
+        // Busy frame (1 during all bits, 0 at idle)
+        expected_busy = 12'b011111111110 ;
+
+
+    ////////////////////////////////// Task Logic ///////////////////////////////////
+        reset();
+        P_DATA_tb = Data ;
+        PAR_EN_tb =1'b0 ;
+
+
+        @(negedge CLK_tb) ;
+        Data_Valid_tb =1'b1 ;
+
+        Busy_Frame[11] = busy_tb;       // IDLE bit
+        
+        @(negedge CLK_tb) ;
+        Data_Valid_tb =1'b0 ;           // Data_Valid high for 1CLK 
+
+
+        for (i=9 ; i>=0 ; i=i-1) begin
+            TX_Frame[i] = TX_OUT_tb;
+            Busy_Frame[i+1] = busy_tb;
+            @(negedge CLK_tb) ;
+        end
+
+        @(negedge CLK_tb) ;
+        Busy_Frame[0] = busy_tb;     // IDLE bit
+
+        @(negedge CLK_tb) ;
+
+
+        //////////////////////////// Checking the output ///////////////////////////////
+        if(TX_Frame == expected_frame && Busy_Frame == expected_busy) 
+        begin
+            $display("\nTest Case is succeeded With : Input parallel Data = %8b \n
+                      expected_frame =%11b  --> Output TX_Frame =%11b \n
+                      expected_busy  =%13   --> Out Busy_Frame  =%13b \n"
+                      ,P_DATA_tb,expected_frame,TX_Frame,expected_busy,Busy_Frame);
+        end
+
+        else
+        begin
+            $display("\nTest Case is Failed With : Input parallel Data = %8b \n
+                      expected_frame =%11b  --> Output TX_Frame =%11b \n
+                      expected_busy  =%13   --> Out Busy_Frame  =%13b \n"
+                      ,P_DATA_tb,expected_frame,TX_Frame,expected_busy,Busy_Frame);
+        end 
+
+     end
+endtask 
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//**************************************************** DO_OP_With_parity *************************************************************//
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+task DO_OP_With_parity ;
+    input   [7:0]   Data ;
+    input           Parity_typ;
+
+    reg     [7:0]   Data_LSB_first;
+    reg     [10:0]  expected_frame; // Start + 8 Data + Parity + Stop
+    reg     [12:0]  expected_busy;  // Busy pattern
+    reg             parity_bit;
+
+    integer i ;
+    integer n ;
+    
+    begin
+
+    /////////////////////////////////// Expected Frames ///////////////////////////////
+        
+
+        // Reverse Data bits for LSB-first order 
+        for (n = 0; n < 8; n = n + 1)
+            Data_LSB_first[7-n] = Data[n]; 
+
+        // Compute parity bit 
+        if (Parity_typ) parity_bit = ~^Data;
+        else            parity_bit = ^Data;
+            
+        // Build expected frame 
+        expected_frame = {1'b1, parity_bit, Data_LSB_first, 1'b0};  // Start(0), then LSB-first data, then parity, then Stop(1)
+
+        // Busy frame (1 during all bits, 0 at idle)
+        expected_busy = 13'b0111111111110 ;
+
+
+    ////////////////////////////////// Task Logic ///////////////////////////////////
+        reset();
+        P_DATA_tb = Data ;
+        PAR_EN_tb =1'b1 ;
+        PAR_TYP_tb = Parity_typ ;
+        
+        @(negedge CLK_tb) ;
+        Data_Valid_tb =1'b1 ;
+
+        Busy_Frame_P[12] = busy_tb;       // IDLE bit
+        
+        @(negedge CLK_tb) ;
+        Data_Valid_tb =1'b0 ;           // Data_Valid high for 1CLK 
+
+
+        for (i=10 ; i>=0 ; i=i-1) begin
+            TX_Frame_P[i] = TX_OUT_tb;
+            Busy_Frame_P[i+1] = busy_tb;
+            @(negedge CLK_tb) ;
+        end
+
+        @(negedge CLK_tb) ;
+        Busy_Frame_P[0] = busy_tb;     // IDLE bit
+
+        @(negedge CLK_tb) ;
+
+
+    //////////////////////////// Checking the output ///////////////////////////////
+        if(TX_Frame_P == expected_frame && Busy_Frame_P == expected_busy) 
+        begin
+            $display("\nTest Case is succeeded With : Input parallel Data = %8b \n
+                      expected_frame =%11b  --> Output TX_Frame =%11b \n
+                      expected_busy  =%13   --> Out Busy_Frame  =%13b \n"
+                      ,P_DATA_tb,expected_frame,TX_Frame_P,expected_busy,Busy_Frame_P);
+        end
+
+        else
+        begin
+            $display("\nTest Case is Failed With : Input parallel Data = %8b \n
+                      expected_frame =%11b  --> Output TX_Frame =%11b \n
+                      expected_busy  =%13   --> Out Busy_Frame  =%13b \n"
+                      ,P_DATA_tb,expected_frame,TX_Frame_P,expected_busy,Busy_Frame_P);
+        end   
+
+    end
+endtask  
+
+
+
+
+
+
+
+endmodule
+

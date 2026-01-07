@@ -1,0 +1,345 @@
+// ************************************************************* //
+//                      Module : SYS_TOP_tb                      //
+//                      Author : Ahmed_Afifi                     //
+// ************************************************************* //
+
+`timescale 1us/1ps
+
+module SYS_TOP_tb();
+
+//******************************* Parameters *******************************
+parameter Data_Width      = 8 ;
+parameter REF_CLK_PERIOD  = 20 ;          // 50 MHz
+parameter UART_CLK_PERIOD = 271.27 ;      // 3.6864 MHz
+parameter TX_CLK_PERIOD   = 271.27*32 ;   // 3.6864/32 MHz
+
+//******************************* DUT Signals *******************************
+reg                     REF_CLK_TB;
+reg                     UART_CLK_TB;
+reg                     TX_CLK_TB;
+reg                     RST_TB;
+reg                     RX_IN_TB;
+wire                    TX_OUT_TB;
+wire                    Framing_Err_TB;
+wire                    Parity_Err_TB;
+
+//***************************** DUT Instantiation ***************************
+SYSTEM_TOP #(
+    .D_Width(Data_Width),
+    .Addr_RegF(4)
+) DUT (
+    .REF_CLK(REF_CLK_TB),
+    .UART_CLK(UART_CLK_TB),
+    .RST(RST_TB),
+    .RX_IN(RX_IN_TB),
+    .TX_OUT(TX_OUT_TB),
+    .Framing_Err(Framing_Err_TB),
+    .Parity_Err(Parity_Err_TB)
+);
+
+
+//******************************* Initial Block *****************************
+initial begin
+    // Init
+    REF_CLK_TB  = 1'b0;
+    UART_CLK_TB = 1'b0;
+    TX_CLK_TB   = 1'b0;
+    RST_TB      = 1'b1;
+    RX_IN_TB    = 1'b1;
+
+    // Reset sequence
+    APPLY_RESET();
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    // Config : Party_EN = 0  , Parity_Type = 1 , Prescale = 32 , Div_Ratio = 32  // //////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////
+    CONFIG_REGFILE(1'b0 , 1'b1 , 'd32 , 'd32);
+    #(2*TX_CLK_PERIOD);
+
+    UART_SEND_FRAME(8'hCC);  // Command 
+    UART_SEND_FRAME('h05);  // Address = 0x3
+    UART_SEND_FRAME('h04);  // Address = 0x3
+    UART_SEND_FRAME('d0);  // Address = 0x3
+    TX_read();
+    TX_read();
+
+
+
+    $stop;
+
+end
+
+
+//*************************************************************************************************************************************************//
+//***************************************************************** TASKS *************************************************************************//
+//*************************************************************************************************************************************************//
+
+
+task TX_read;
+    reg   [7:0]  R_Data;
+    begin
+
+    $display("Reading Data From FIFO: ... ");
+        
+        @(posedge DUT.UART_TX.busy);
+
+        @(posedge DUT.UART_TX.CLK);
+        #1;
+
+        for (i=0; i<8; i=i+1) begin
+            R_Data[i] = TX_OUT_TB;
+            @(posedge DUT.UART_TX.CLK);
+            #1;
+        end
+
+        #(REF_CLK_PERIOD);
+
+        $display("Read_Data = %h\n" , R_Data );
+
+    end
+endtask
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//************************************************* RESET **********************************************************//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+task APPLY_RESET;
+    begin
+        RST_TB = 1'b1;
+        @(posedge TX_CLK_TB)
+        RST_TB = 1'b0;
+        @(negedge TX_CLK_TB)
+        RST_TB = 1'b1;
+    end
+endtask
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//************************************************* Test_num *******************************************************//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+task Test_num;
+    input  [4:0]  num;   
+    begin
+        $display("\n**************************************");
+        $display("*           Test case (%d ) :        *",num);
+        $display("**************************************");
+    end
+endtask
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//********************************************* UART_SEND_FRAME ****************************************************//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+task UART_SEND_FRAME;
+    input [7:0] DATA;
+    reg         PARITY_EN;   // 0 = no parity, 1 = parity enabled
+    reg         PARITY_TYPE;  
+    reg         PARITY_Bit;
+    integer     i;
+    begin
+
+        PARITY_EN = DUT.RegFile.REG2[0] ;
+        PARITY_TYPE = DUT.RegFile.REG2[1] ;
+
+        if (PARITY_EN) begin
+            PARITY_Bit = (PARITY_TYPE) ? ~(^DATA) : ^DATA;
+        end
+
+        // Start Bit
+        @(negedge TX_CLK_TB);
+        RX_IN_TB = 1'b0;
+        @(posedge UART_CLK_TB);
+        @(negedge TX_CLK_TB);
+        
+        // Data Bits (LSB First)
+        for (i=0; i<8; i=i+1) begin
+            RX_IN_TB = DATA[i];
+            @(posedge UART_CLK_TB);
+            @(negedge TX_CLK_TB);
+        end
+
+        // Optional Parity Bit
+        if (PARITY_EN) begin
+            RX_IN_TB = PARITY_Bit;
+            @(posedge UART_CLK_TB);
+            @(negedge TX_CLK_TB);
+        end
+        
+        // Stop Bit
+        RX_IN_TB = 1'b1;
+        @(posedge UART_CLK_TB);
+        @(negedge TX_CLK_TB);
+        @(posedge UART_CLK_TB);
+        @(negedge UART_CLK_TB);
+        
+
+        if (!Framing_Err_TB && !Parity_Err_TB ) begin
+            $display("Valid Frame..");
+        end 
+        else begin 
+            $display("Send the same frame agin !..");
+        end   
+        @(negedge TX_CLK_TB); 
+
+    end
+endtask
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//****************************************** UART_SEND_FRAME_Parity *************************************************//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+task UART_SEND_FRAME_Parity;
+    input [7:0] DATA;
+    input       parity_bit;
+    reg         PARITY_EN;   // 0 = no parity, 1 = parity enabled
+    reg         PARITY_TYPE;  
+    reg         PARITY_Bit;
+    integer     i;
+    begin
+
+        PARITY_EN = DUT.RegFile.REG2[0] ;
+        PARITY_TYPE = DUT.RegFile.REG2[1] ;
+
+        if (PARITY_EN) begin
+            PARITY_Bit = (PARITY_TYPE) ? ~(^DATA) : ^DATA;
+        end
+
+        // Start Bit
+        @(negedge TX_CLK_TB);
+        RX_IN_TB = 1'b0;
+        @(posedge UART_CLK_TB);
+        @(negedge TX_CLK_TB);
+        
+        // Data Bits (LSB First)
+        for (i=0; i<8; i=i+1) begin
+            RX_IN_TB = DATA[i];
+            @(posedge UART_CLK_TB);
+            @(negedge TX_CLK_TB);
+        end
+
+        // Optional Parity Bit
+        if (PARITY_EN) begin
+            RX_IN_TB = parity_bit;
+            @(posedge UART_CLK_TB);
+            @(negedge TX_CLK_TB);
+        end
+        
+        // Stop Bit
+        RX_IN_TB = 1'b1;
+        @(posedge UART_CLK_TB);
+        @(negedge TX_CLK_TB);
+        @(posedge UART_CLK_TB);
+        @(negedge UART_CLK_TB);
+        
+
+        if (!Framing_Err_TB && !Parity_Err_TB ) begin
+            $display("Valid Frame..");
+        end 
+        else begin 
+            $display("Send the same frame agin !..");
+        end   
+        @(negedge TX_CLK_TB); 
+
+    end
+endtask
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//******************************************** CONFIG_REGFILE ******************************************************//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+task CONFIG_REGFILE;
+    input       PARITY_EN;   // 0 = no parity, 1 = parity enabled
+    input       PARITY_TYPE; // 0 = Even parity, 1 = Odd parity
+    input [5:0] Prescale;
+    input [7:0] DIV_RATIO;
+
+    integer i;
+    begin
+        $display("\n**************************************");
+        $display("* Start Reseving CONFIG frames : ... *");
+        $display("**************************************");
+
+
+        #(TX_CLK_PERIOD);
+        
+        $display("Writing in Reg[3] : %b ",DIV_RATIO);
+        // Write REG3 (Clock Divider ratio=32)
+        UART_SEND_FRAME(8'hAA);  // Command 
+        UART_SEND_FRAME('h03);  // Address = 0x3
+        UART_SEND_FRAME(DIV_RATIO);  // Divider value
+        
+
+        $display("Writing in Reg[2] : %b ",{Prescale,PARITY_TYPE,PARITY_EN});
+        // Write REG2 (UART Config: Parity Enable, Parity Type, Prescale)
+        UART_SEND_FRAME(8'hAA);  // Command
+        UART_SEND_FRAME('h02);  // Address = 0x2
+        UART_SEND_FRAME({Prescale,PARITY_TYPE,PARITY_EN}); 
+
+        $display("\n********CONFIG frames Receved********");
+        #(TX_CLK_PERIOD);
+    end
+endtask
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//******************************************Reg_File_Write_Command**************************************************//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+task Reg_File_Write_Command;
+    input [3:0] Address;
+    input [7:0] DATA;
+    integer i;
+    begin
+        $display("Writing (%h) in Reg[%d ]  : ... ",DATA ,Address );
+
+        UART_SEND_FRAME(8'hAA);               // Command 
+        UART_SEND_FRAME({4'b0000, Address});  // Address
+        UART_SEND_FRAME(DATA);                // Data
+
+        #(2*TX_CLK_PERIOD);
+        if (DUT.RegFile.memory[Address] == DATA)    $display("Test PASSED: Reg[%d ] = %h" ,Address , DUT.RegFile.memory[Address] );
+        else                                        $display("Test FAILED: Reg[%d ] = %h" ,Address , DUT.RegFile.memory[Address] );
+    end
+endtask
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//******************************************Reg_File_Read_Command**************************************************//
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+task Reg_File_Read_Command;
+    input [3:0]  Address;
+    integer      i;
+    reg   [7:0]  R_Data;
+    begin
+        $display("Reading Data From Reg[%d ]  : ... ",Address );
+
+        UART_SEND_FRAME(8'hBB);  // Command 
+        UART_SEND_FRAME({4'b0000, Address});  // Address = 0x3
+        
+        @(posedge DUT.UART_TX.busy);
+
+        @(posedge DUT.UART_TX.CLK);
+        #1;
+
+        for (i=0; i<8; i=i+1) begin
+            R_Data[i] = TX_OUT_TB;
+            @(posedge DUT.UART_TX.CLK);
+            #1;
+        end
+
+        @(posedge DUT.UART_TX.CLK);
+   
+        $display("Read_Command --> Reg[%d ] = %h\n" ,Address , R_Data );
+ 
+    end
+endtask
+
+
+
+
+//******************************* Clock Generators **************************
+always #(REF_CLK_PERIOD/2) REF_CLK_TB = ~REF_CLK_TB;
+always #(UART_CLK_PERIOD/2) UART_CLK_TB = ~UART_CLK_TB;
+always #(TX_CLK_PERIOD/2) TX_CLK_TB = ~TX_CLK_TB;
+
+endmodule
